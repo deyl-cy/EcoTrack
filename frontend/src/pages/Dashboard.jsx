@@ -1,0 +1,101 @@
+import { useEffect, useState } from 'react';
+import api from '../api';
+import { useAuth } from '../AuthContext';
+import { DataTable, LevelGauge, PageHeader, StatCard } from '../components/ui';
+
+const LEVELS = [['Low', '#22a35a'], ['Medium', '#e0a526'], ['High', '#ea7a1c'], ['Full', '#d93f3f']];
+
+function greeting() {
+  const h = new Date().getHours();
+  return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+}
+
+/** Completed vs pending pickups as a ring. */
+function Donut({ done, total }) {
+  const r = 52, c = 2 * Math.PI * r;
+  const pct = total ? done / total : 0;
+  return (
+    <svg viewBox="0 0 128 128" width="150" height="150" role="img" aria-label={`${Math.round(pct * 100)}% of pickups completed`}>
+      <circle cx="64" cy="64" r={r} fill="none" stroke="#e6eee9" strokeWidth="14" />
+      <circle cx="64" cy="64" r={r} fill="none" stroke="#22c55e" strokeWidth="14" strokeLinecap="round"
+        strokeDasharray={c} strokeDashoffset={c * (1 - pct)} transform="rotate(-90 64 64)" style={{ transition: 'stroke-dashoffset 1s ease' }} />
+      <text x="64" y="70" textAnchor="middle" className="donut-label" fill="#12261c">{Math.round(pct * 100)}%</text>
+    </svg>
+  );
+}
+
+export default function Dashboard() {
+  const { user } = useAuth();
+  const [d, setD] = useState(null);
+
+  useEffect(() => { api.get('/dashboard').then((res) => setD(res.data)); }, []);
+
+  if (!d) return <div className="text-muted">Loading...</div>;
+
+  const totalBins = d.bins || 1;
+  const totalSchedules = d.pending + d.completed;
+
+  return (
+    <>
+      <PageHeader title={`${greeting()}, ${user.full_name.split(' ')[0]}`}
+        subtitle={d.overdue > 0 ? `${d.overdue} pickup${d.overdue > 1 ? 's are' : ' is'} overdue and ${d.bins_needing_collection.length} bin${d.bins_needing_collection.length === 1 ? '' : 's'} need collecting.` : 'Everything is on schedule.'} />
+
+      <div className="row g-3 mb-4">
+        <div className="col-6 col-lg-4 col-xl-2"><StatCard icon="trash3-fill" label="Bins" value={d.bins} /></div>
+        <div className="col-6 col-lg-4 col-xl-2"><StatCard icon="truck" label="Vehicles" value={d.vehicles} tone="blue" /></div>
+        <div className="col-6 col-lg-4 col-xl-2"><StatCard icon="people-fill" label="Collectors" value={d.collectors} tone="gray" /></div>
+        <div className="col-6 col-lg-4 col-xl-2"><StatCard icon="hourglass-split" label="Pending" value={d.pending} tone="amber" /></div>
+        <div className="col-6 col-lg-4 col-xl-2"><StatCard icon="check2-circle" label="Completed" value={d.completed} /></div>
+        <div className="col-6 col-lg-4 col-xl-2"><StatCard icon="exclamation-triangle-fill" label="Overdue" value={d.overdue} tone="red" /></div>
+      </div>
+
+      <div className="row g-3 mb-4">
+        <div className="col-lg-7">
+          <div className="eco-card h-100">
+            <div className="eco-card-head"><b>Bin fill levels</b><span className="text-muted small">{d.bins} bins</span></div>
+            <div className="eco-card-body">
+              {LEVELS.map(([level, color]) => {
+                const n = d.bins_by_level[level] || 0;
+                return (
+                  <div className="d-flex align-items-center gap-3 mb-3" key={level}>
+                    <div style={{ width: 110 }}><LevelGauge level={level} /></div>
+                    <div className="progress flex-grow-1" style={{ height: 10 }}>
+                      <div className="progress-bar" style={{ width: `${(n / totalBins) * 100}%`, background: color }} />
+                    </div>
+                    <b style={{ width: 28, textAlign: 'right' }}>{n}</b>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+        <div className="col-lg-5">
+          <div className="eco-card h-100">
+            <div className="eco-card-head"><b>Pickup progress</b></div>
+            <div className="eco-card-body d-flex align-items-center gap-4">
+              <Donut done={d.completed} total={totalSchedules} />
+              <div>
+                <div className="mb-2"><span className="pill pill-green">Completed</span> <b className="ms-1">{d.completed}</b></div>
+                <div className="mb-2"><span className="pill pill-amber">Pending</span> <b className="ms-1">{d.pending}</b></div>
+                <div><span className="pill pill-red">Overdue</span> <b className="ms-1">{d.overdue}</b></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h6 className="mb-2">Bins that need collecting</h6>
+      <DataTable
+        empty="All bins are under control."
+        emptyIcon="check2-circle"
+        rows={d.bins_needing_collection}
+        columns={[
+          { key: 'location', label: 'Location' },
+          { key: 'area', label: 'Area' },
+          { key: 'capacity_kg', label: 'Capacity (kg)' },
+          { key: 'current_level', label: 'Level', render: (r) => <LevelGauge level={r.current_level} /> },
+        ]}
+      />
+    </>
+  );
+}
