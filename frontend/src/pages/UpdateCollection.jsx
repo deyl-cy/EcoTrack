@@ -1,27 +1,37 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import api, { errMsg } from '../api';
-import { Alert, PageHeader } from '../components/ui';
+import api, { showError } from '../api';
+import { PageHeader } from '../components/ui';
+import { confirm, success, toast, withLoading } from '../utils/alert';
 
 export default function UpdateCollection() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [schedule, setSchedule] = useState(null);
   const [form, setForm] = useState({ actual_weight_kg: '', remarks: '' });
-  const [error, setError] = useState('');
 
   useEffect(() => {
     api.get(`/schedules/${id}`)
       .then((res) => setSchedule(res.data.data))
-      .catch(() => navigate('/assignments', { replace: true })); // not yours / not found
+      .catch((e) => {
+        if (!e.handled) toast.error('That assignment could not be found.');
+        navigate('/assignments', { replace: true }); // not yours / not found
+      });
   }, [id]);
 
   const submit = async (e) => {
     e.preventDefault();
+    const ok = await confirm({
+      title: 'Mark as collected?',
+      text: `Record ${form.actual_weight_kg} kg collected at ${schedule.location}. This completes the pickup.`,
+      confirmText: 'Yes, mark collected',
+    });
+    if (!ok) return;
     try {
-      await api.post('/records', { schedule_id: id, ...form });
+      await withLoading(api.post('/records', { schedule_id: id, ...form }), 'Recording pickup...', 0);
+      await success('Pickup recorded!', `${schedule.location} is now marked as collected.`, { timer: 1800, timerProgressBar: true, showConfirmButton: false });
       navigate('/assignments');
-    } catch (err) { setError(errMsg(err)); }
+    } catch (err) { showError(err, 'Could not record pickup'); }
   };
 
   if (!schedule) return <div className="text-muted">Loading...</div>;
@@ -49,7 +59,6 @@ export default function UpdateCollection() {
             </div>
           </div>
 
-          <Alert msg={error} />
           <form className="eco-card" onSubmit={submit}>
             <div className="eco-card-body">
               <div className="mb-3">

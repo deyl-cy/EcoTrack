@@ -1,10 +1,15 @@
 import { useEffect, useState } from 'react';
-import api from '../api';
+import api, { errMsg } from '../api';
 import { DataTable, PageHeader } from '../components/ui';
+import { toast } from '../utils/alert';
 
 export default function Monitor() {
   const [d, setD] = useState(null);
-  useEffect(() => { api.get('/monitor').then((res) => setD(res.data)); }, []);
+  useEffect(() => {
+    api.get('/monitor')
+      .then((res) => setD(res.data))
+      .catch((e) => { if (!e.handled) toast.error(errMsg(e)); });
+  }, []);
   if (!d) return <div className="text-muted">Loading...</div>;
 
   const overdue = d.overdue.data ?? d.overdue;

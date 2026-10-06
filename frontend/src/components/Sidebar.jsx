@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth, homeFor } from '../AuthContext';
+import { confirmLogout, toast } from '../utils/alert';
 import Logo from './Logo';
 
 // [path, label, bootstrap-icon]
@@ -22,8 +23,10 @@ export default function Sidebar({ open, onClose }) {
   const navigate = useNavigate();
 
   const handleLogout = async () => {
+    if (!(await confirmLogout())) return;
     await logout();
     navigate('/login');
+    toast.success('You have been signed out.');
   };
 
   return (

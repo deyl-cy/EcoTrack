@@ -1,14 +1,21 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import api from '../api';
+import api, { errMsg } from '../api';
 import { Badge, DataTable, Empty, PageHeader } from '../components/ui';
+import { toast } from '../utils/alert';
 
 export default function Assignments() {
   const [rows, setRows] = useState(null);
 
   useEffect(() => {
     // The API automatically limits a collector to their own schedules.
-    api.get('/schedules', { params: { per_page: 200 } }).then((res) => setRows(res.data.data));
+    api.get('/schedules', { params: { per_page: 200 } })
+      .then((res) => {
+        setRows(res.data.data);
+        const late = res.data.data.filter((s) => s.is_overdue && s.status === 'Pending').length;
+        if (late > 0) toast.warning(`You have ${late} overdue pickup${late > 1 ? 's' : ''}.`);
+      })
+      .catch((e) => { if (!e.handled) toast.error(errMsg(e)); });
   }, []);
 
   if (!rows) return <div className="text-muted">Loading...</div>;

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth, homeFor } from '../AuthContext';
+import { confirmLogout, toast } from '../utils/alert';
 
 const LINKS = {
   Admin: [
@@ -20,8 +21,10 @@ export default function Navbar() {
   const [open, setOpen] = useState(false);
 
   const handleLogout = async () => {
+    if (!(await confirmLogout())) return;
     await logout();
     navigate('/login');
+    toast.success('You have been signed out.');
   };
 
   return (

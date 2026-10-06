@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import api from '../api';
+import api, { showError } from '../api';
+import { withLoading } from '../utils/alert';
 import CrudPage from '../components/CrudPage';
 import { Badge, DataTable, Modal, ModalBody } from '../components/ui';
 
@@ -14,8 +15,10 @@ export default function Routes() {
   }, []);
 
   const viewStops = async (route) => {
-    const res = await api.get(`/routes/${route.id}/stops`);
-    setStops({ route, rows: res.data.data });
+    try {
+      const res = await withLoading(api.get(`/routes/${route.id}/stops`), 'Loading stops...');
+      setStops({ route, rows: res.data.data });
+    } catch (err) { showError(err, 'Could not load stops'); }
   };
 
   return (

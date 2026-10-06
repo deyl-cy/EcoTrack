@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth, homeFor } from '../AuthContext';
-import { errMsg } from '../api';
-import { Alert } from '../components/ui';
+import { showError } from '../api';
+import { toast } from '../utils/alert';
 import Logo from '../components/Logo';
 
 // The four fill levels the whole app is built around.
@@ -15,16 +15,20 @@ export default function Login() {
   const { user, login } = useAuth();
   const [form, setForm] = useState({ username: '', password: '' });
   const [show, setShow] = useState(false);
-  const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
   if (user) return <Navigate to={homeFor(user.role)} replace />;
 
   const submit = async (e) => {
     e.preventDefault();
-    setBusy(true); setError('');
-    try { await login(form.username, form.password); }
-    catch (err) { setError(errMsg(err)); setBusy(false); }
+    setBusy(true);
+    try {
+      const u = await login(form.username, form.password);
+      toast.success(`Welcome back, ${u.full_name.split(' ')[0]}!`);
+    } catch (err) {
+      showError(err, 'Sign in failed');
+      setBusy(false);
+    }
   };
 
   return (
@@ -56,7 +60,6 @@ export default function Login() {
         <form className="login-form" onSubmit={submit}>
           <h2>Sign in</h2>
           <p className="text-muted mb-4">Use the account your administrator gave you.</p>
-          <Alert msg={error} />
           <div className="mb-3">
             <label className="form-label" htmlFor="username">Username</label>
             <input id="username" className="form-control form-control-lg" required autoFocus autoComplete="username"

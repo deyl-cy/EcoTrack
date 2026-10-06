@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import api, { errMsg } from '../api';
-import { Alert, Badge, DataTable, Field, Modal, ModalBody, ModalFoot, PageHeader, Pagination, SearchBox } from '../components/ui';
+import api, { errMsg, showError } from '../api';
+import { confirm, confirmDelete, confirmDiscard, toast, withLoading } from '../utils/alert';
+import { Badge, DataTable, Field, Modal, ModalBody, ModalFoot, PageHeader, Pagination, SearchBox } from '../components/ui';
 
 const BLANK = { bin_id: '', collector_id: '', vehicle_id: '', collection_route_id: '', scheduled_date: '', waste_type: 'Biodegradable', waste_amount_kg: '', status: 'Pending', notes: '' };
 const WASTE = ['Biodegradable', 'Non-Biodegradable', 'Recyclable'];
@@ -14,19 +15,19 @@ export default function Schedules() {
   const [lookups, setLookups] = useState({ bins: [], collectors: [], vehicles: [], routes: [] });
   const [form, setForm] = useState(null);
   const [editingId, setEditingId] = useState(null);
-  const [error, setError] = useState('');
-  const [flash, setFlash] = useState('');
+  const [initial, setInitial] = useState(null); // snapshot of the form when the modal opened
 
   // dropdown data (loaded once)
   useEffect(() => {
     Promise.all([api.get('/bins'), api.get('/users', { params: { role: 'Collector' } }), api.get('/vehicles'), api.get('/routes')])
-      .then(([b, u, v, r]) => setLookups({ bins: b.data, collectors: u.data, vehicles: v.data, routes: r.data }));
+      .then(([b, u, v, r]) => setLookups({ bins: b.data, collectors: u.data, vehicles: v.data, routes: r.data }))
+      .catch((e) => { if (!e.handled) toast.error(`Could not load dropdown data. ${errMsg(e)}`); });
   }, []);
 
   const load = () =>
     api.get('/schedules', { params: { ...filters, page, per_page: 10 } })
       .then((res) => { setRows(res.data.data); setMeta(res.data.meta); })
-      .catch((e) => setError(errMsg(e)));
+      .catch((e) => { if (!e.handled) toast.error(errMsg(e)); });
 
   // LIVE SEARCH: re-query the server 300 ms after the user stops typing / changes a filter.
   useEffect(() => {
@@ -37,26 +38,39 @@ export default function Schedules() {
   const setFilter = (name, value) => { setPage(1); setFilters((f) => ({ ...f, [name]: value })); };
   const change = (name, value) => setForm((f) => ({ ...f, [name]: value }));
 
-  const openAdd = () => { setForm({ ...BLANK }); setEditingId(null); setError(''); };
+  const openAdd = () => { setForm({ ...BLANK }); setInitial({ ...BLANK }); setEditingId(null); };
   const openEdit = (s) => {
-    setForm(Object.fromEntries(Object.keys(BLANK).map((k) => [k, s[k] ?? ''])));
-    setEditingId(s.id); setError('');
+    const values = Object.fromEntries(Object.keys(BLANK).map((k) => [k, s[k] ?? '']));
+    setForm(values); setInitial(values); setEditingId(s.id);
+  };
+  // Closing with unsaved edits asks first.
+  const requestClose = async () => {
+    const dirty = JSON.stringify(form) !== JSON.stringify(initial);
+    if (dirty && !(await confirmDiscard())) return;
+    setForm(null);
   };
 
   const save = async (e) => {
     e.preventDefault();
+    if (editingId && !(await confirm({ title: 'Save changes?', text: 'Update this schedule?', confirmText: 'Yes, save' }))) return;
     try {
-      if (editingId) await api.put(`/schedules/${editingId}`, form);
-      else await api.post('/schedules', form);
-      setForm(null); setFlash('Schedule saved.'); setError('');
+      await withLoading(
+        editingId ? api.put(`/schedules/${editingId}`, form) : api.post('/schedules', form),
+        'Saving schedule...'
+      );
+      setForm(null);
+      toast.success(editingId ? 'Schedule updated.' : 'Schedule added.');
       load();
-    } catch (err) { setError(errMsg(err)); }
+    } catch (err) { showError(err, 'Could not save schedule'); }
   };
 
   const remove = async (s) => {
-    if (!window.confirm('Delete this schedule?')) return;
-    try { await api.delete(`/schedules/${s.id}`); setFlash('Schedule deleted.'); load(); }
-    catch (err) { setError(errMsg(err)); }
+    if (!(await confirmDelete('schedule', `${s.location} · ${s.scheduled_date}`))) return;
+    try {
+      await withLoading(api.delete(`/schedules/${s.id}`), 'Deleting...');
+      toast.success('Schedule deleted.');
+      load();
+    } catch (err) { showError(err, 'Could not delete schedule'); }
   };
 
   const opts = (list, label) => list.map((x) => ({ value: x.id, label: label(x) }));
@@ -97,9 +111,6 @@ export default function Schedules() {
         <button className="btn btn-success" onClick={openAdd}><i className="bi bi-plus-lg me-1" />Add schedule</button>
       </PageHeader>
 
-      <Alert msg={!form && error} onClose={() => setError('')} />
-      <Alert msg={flash} type="success" onClose={() => setFlash('')} />
-
       <div className="eco-card p-3 mb-3">
         <div className="row g-2">
           <div className="col-lg-4"><SearchBox value={filters.keyword} onChange={(v) => setFilter('keyword', v)} placeholder="Search location, area or collector" /></div>
@@ -122,14 +133,13 @@ export default function Schedules() {
       <Pagination meta={meta} onPage={setPage} />
 
       {form && (
-        <Modal title={editingId ? 'Edit schedule' : 'Add schedule'} onClose={() => setForm(null)}>
+        <Modal title={editingId ? 'Edit schedule' : 'Add schedule'} onClose={requestClose}>
           <form onSubmit={save}>
             <ModalBody>
-              <Alert msg={error} />
               {fields.map((f) => <Field key={f.name} field={f} value={form[f.name]} onChange={change} />)}
             </ModalBody>
             <ModalFoot>
-              <button type="button" className="btn btn-light" onClick={() => setForm(null)}>Cancel</button>
+              <button type="button" className="btn btn-light" onClick={requestClose}>Cancel</button>
               <button className="btn btn-success">Save</button>
             </ModalFoot>
           </form>

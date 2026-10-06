@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
-import api from '../api';
+import { useNavigate } from 'react-router-dom';
+import api, { errMsg } from '../api';
 import { useAuth } from '../AuthContext';
 import { DataTable, LevelGauge, PageHeader, StatCard } from '../components/ui';
+import { DASH_ALERT_KEY, toast, warning } from '../utils/alert';
 
 const LEVELS = [['Low', '#22a35a'], ['Medium', '#e0a526'], ['High', '#ea7a1c'], ['Full', '#d93f3f']];
 
@@ -26,9 +28,30 @@ function Donut({ done, total }) {
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [d, setD] = useState(null);
 
-  useEffect(() => { api.get('/dashboard').then((res) => setD(res.data)); }, []);
+  useEffect(() => {
+    api.get('/dashboard')
+      .then((res) => { setD(res.data); headsUp(res.data); })
+      .catch((e) => { if (!e.handled) toast.error(errMsg(e)); });
+  }, []);
+
+  // One "heads up" popup per login session if anything needs attention.
+  const headsUp = async (data) => {
+    if (sessionStorage.getItem(DASH_ALERT_KEY)) return;
+    sessionStorage.setItem(DASH_ALERT_KEY, '1');
+    const lines = [];
+    if (data.overdue > 0) lines.push(`<b>${data.overdue}</b> pickup${data.overdue > 1 ? 's are' : ' is'} overdue`);
+    const n = data.bins_needing_collection.length;
+    if (n > 0) lines.push(`<b>${n}</b> bin${n > 1 ? 's need' : ' needs'} collecting`);
+    if (!lines.length) return;
+    const res = await warning('Heads up', undefined, {
+      html: lines.join('<br>'), showCancelButton: true,
+      confirmButtonText: 'View schedules', cancelButtonText: 'Dismiss',
+    });
+    if (res.isConfirmed) navigate('/schedules');
+  };
 
   if (!d) return <div className="text-muted">Loading...</div>;
 
