@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import api, { errMsg, showError } from '../api';
 import { confirm, confirmDelete, confirmDiscard, toast, withLoading } from '../utils/alert';
-import { Badge, DataTable, Field, Modal, ModalBody, ModalFoot, PageHeader, Pagination, SearchBox } from '../components/ui';
+import { Badge, DataTable, Field, Modal, ModalBody, ModalFoot, PageHeader, Pagination, PrintHeader, SearchBox } from '../components/ui';
 
 const BLANK = { bin_id: '', collector_id: '', vehicle_id: '', collection_route_id: '', scheduled_date: '', waste_type: 'Biodegradable', waste_amount_kg: '', status: 'Pending', notes: '' };
 const WASTE = ['Biodegradable', 'Non-Biodegradable', 'Recyclable'];
@@ -95,7 +95,7 @@ export default function Schedules() {
     { key: 'waste_type', label: 'Waste', render: (s) => <span className="text-nowrap"><i className={`bi bi-${WASTE_ICON[s.waste_type]} me-1 text-muted`} />{s.waste_type}</span> },
     { key: 'status', label: 'Status', render: (s) => <Badge value={s.status} /> },
     {
-      label: 'Actions', sortable: false,
+      label: 'Actions', sortable: false, noPrint: true,
       render: (s) => (
         <div className="d-flex gap-1">
           <button className="btn btn-sm btn-soft btn-icon" title="Edit" aria-label="Edit" onClick={() => openEdit(s)}><i className="bi bi-pencil-fill" /></button>
@@ -107,7 +107,9 @@ export default function Schedules() {
 
   return (
     <>
+      <PrintHeader title="Pickup schedules" subtitle="Current page and filters" />
       <PageHeader title="Schedules" subtitle="Plan which collector picks up which bin, and when.">
+        <button className="btn btn-soft" onClick={() => window.print()} title="Prints the rows on screen (this page and filters)"><i className="bi bi-printer-fill me-1" />Print this page</button>
         <button className="btn btn-success" onClick={openAdd}><i className="bi bi-plus-lg me-1" />Add schedule</button>
       </PageHeader>
 

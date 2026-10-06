@@ -10,6 +10,9 @@ use App\Models\CollectionRecord;
 use App\Models\Schedule;
 use App\Models\User;
 use App\Models\Vehicle;
+use App\Support\Audit;
+use Carbon\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -30,7 +33,59 @@ class DashboardController extends Controller
             'bins_by_level' => Bin::selectRaw('current_level, COUNT(*) as total')->groupBy('current_level')->pluck('total', 'current_level'),
             'bins_needing_collection' => Bin::whereIn('current_level', ['High', 'Full'])
                 ->orderByRaw("FIELD(current_level, 'Full', 'High')")->get(),
+            'trends' => $this->trends(),
         ]);
+    }
+
+    private const WASTE_TYPES = ['Biodegradable', 'Non-Biodegradable', 'Recyclable'];
+
+    /** Chart data for the dashboard: the last 8 weeks, plus the last 30 days by collector / waste type. */
+    private function trends(): array
+    {
+        $since = now()->subWeeks(7)->startOfWeek();
+        $records = CollectionRecord::with(['schedule.route', 'collector'])->where('collected_at', '>=', $since)->get();
+        $recent = $records->filter(fn ($r) => $r->collected_at->greaterThanOrEqualTo(now()->subDays(30)));
+
+        return [
+            'weekly' => $this->timeSeries($records, 'week', $since, now()),
+            'by_collector' => $this->breakdown($recent, fn ($r) => $r->collector?->full_name ?? 'Unknown'),
+            'by_waste_type' => $this->wasteTotals($recent),
+        ];
+    }
+
+    /** Weight per bucket (day or week), split by waste type. Empty buckets are filled with zeros. */
+    private function timeSeries(Collection $records, string $unit, Carbon $from, Carbon $to): array
+    {
+        $bucket = fn (Carbon $d) => $unit === 'week' ? $d->copy()->startOfWeek() : $d->copy()->startOfDay();
+        $grouped = $records->groupBy(fn ($r) => $bucket($r->collected_at)->format('Y-m-d'));
+
+        $series = [];
+        for ($d = $bucket($from); $d->lessThanOrEqualTo($to); $d = ($unit === 'week' ? $d->addWeek() : $d->addDay())) {
+            $group = $grouped->get($d->format('Y-m-d'), collect());
+            $row = ['label' => $d->format('M j'), 'total' => round($group->sum('actual_weight_kg'), 2)];
+            foreach (self::WASTE_TYPES as $type) {
+                $row[$type] = round($group->filter(fn ($r) => $r->schedule?->waste_type === $type)->sum('actual_weight_kg'), 2);
+            }
+            $series[] = $row;
+        }
+
+        return $series;
+    }
+
+    /** [{name, weight_kg, pickups}] sorted by weight, biggest first. */
+    private function breakdown(Collection $records, callable $key): array
+    {
+        return $records->groupBy($key)
+            ->map(fn ($g, $name) => ['name' => (string) $name, 'weight_kg' => round($g->sum('actual_weight_kg'), 2), 'pickups' => $g->count()])
+            ->sortByDesc('weight_kg')->values()->all();
+    }
+
+    private function wasteTotals(Collection $records): array
+    {
+        return collect(self::WASTE_TYPES)->map(fn ($type) => [
+            'name' => $type,
+            'weight_kg' => round($records->filter(fn ($r) => $r->schedule?->waste_type === $type)->sum('actual_weight_kg'), 2),
+        ])->all();
     }
 
     /** GET /api/monitor — supervisor status monitor: workload per collector + overdue pickups. */
@@ -68,9 +123,10 @@ class DashboardController extends Controller
     /** GET /api/reports — admin collection report with totals (+ breakdown by waste type). */
     public function report(Request $request)
     {
-        $records = $this->recordQuery($request)->get();
+        $records = $this->recordQuery($request)->with('schedule.route')->get();
 
         return response()->json([
+            'charts' => $this->reportCharts($records, $request),
             'summary' => [
                 'total_pickups' => $records->count(),
                 'total_weight_kg' => round($records->sum('actual_weight_kg'), 2),
@@ -81,10 +137,31 @@ class DashboardController extends Controller
         ]);
     }
 
+    /** Charts for the report page: weight over time (daily, or weekly for long ranges), by collector, by route. */
+    private function reportCharts(Collection $records, Request $request): array
+    {
+        if ($records->isEmpty()) {
+            return ['over_time' => [], 'unit' => 'day', 'by_collector' => [], 'by_route' => [], 'by_waste_type' => $this->wasteTotals($records)];
+        }
+
+        $from = $request->query('date_from') ? Carbon::parse($request->query('date_from')) : $records->min('collected_at');
+        $to = $request->query('date_to') ? Carbon::parse($request->query('date_to'))->endOfDay() : $records->max('collected_at');
+        $unit = $from->diffInDays($to) > 45 ? 'week' : 'day';
+
+        return [
+            'unit' => $unit,
+            'over_time' => $this->timeSeries($records, $unit, $from, $to),
+            'by_collector' => $this->breakdown($records, fn ($r) => $r->collector?->full_name ?? 'Unknown'),
+            'by_route' => $this->breakdown($records, fn ($r) => $r->schedule?->route?->name ?? 'No route'),
+            'by_waste_type' => $this->wasteTotals($records),
+        ];
+    }
+
     /** GET /api/reports/export — the same report as a designed CSV download (title, summary, then details). */
     public function exportCsv(Request $request): StreamedResponse
     {
         $records = $this->recordQuery($request)->get();
+        Audit::log('export', 'Downloaded the collection report (CSV)');
         $from = $request->query('date_from');
         $to = $request->query('date_to');
         $range = ($from && $to) ? "$from to $to" : ($from ? "From $from" : ($to ? "Up to $to" : 'All dates'));

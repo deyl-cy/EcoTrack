@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Support\Audit;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Password;
 
 /** Admin-only account management (Personnel page). */
 class UserController extends Controller
@@ -26,13 +28,16 @@ class UserController extends Controller
         $data = $request->validate([
             'username' => ['required', 'string', 'max:50', 'unique:users,username'],
             'full_name' => ['required', 'string', 'max:100'],
-            'password' => ['required', 'string', 'min:8'],
+            'password' => ['required', 'string', Password::min(8)->letters()->numbers()],
             'contact_number' => ['nullable', 'string', 'max:20'],
             // There is exactly one Admin (seeded), so new accounts can only be Supervisor or Collector.
             'role' => ['required', 'in:Supervisor,Collector'],
         ]);
 
-        return response()->json(User::create($data), 201);
+        $user = User::create($data);
+        Audit::log('created', "Created {$user->role} account '{$user->username}'", $user);
+
+        return response()->json($user, 201);
     }
 
     public function update(Request $request, User $user): JsonResponse
@@ -40,7 +45,7 @@ class UserController extends Controller
         $rules = [
             'username' => ['required', 'string', 'max:50', Rule::unique('users')->ignore($user)],
             'full_name' => ['required', 'string', 'max:100'],
-            'password' => ['nullable', 'string', 'min:8'], // blank = keep current
+            'password' => ['nullable', 'string', Password::min(8)->letters()->numbers()], // blank = keep current
             'contact_number' => ['nullable', 'string', 'max:20'],
         ];
 
@@ -56,7 +61,13 @@ class UserController extends Controller
             unset($data['password']);
         }
 
+        $passwordChanged = isset($data['password']);
+        $before = Audit::snapshot($user);
         $user->update($data);
+        if ($passwordChanged) {
+            $user->tokens()->delete(); // a reset password signs that person out everywhere
+        }
+        Audit::log('updated', "Edited account '{$user->username}' (".Audit::diff($before, $user).($passwordChanged ? '; password reset' : '').')', $user);
 
         return response()->json($user);
     }
@@ -68,6 +79,7 @@ class UserController extends Controller
         }
 
         $user->delete();
+        Audit::log('deleted', "Deleted account '{$user->username}'", $user);
 
         return response()->json(['message' => 'User deleted.']);
     }

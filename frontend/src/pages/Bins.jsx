@@ -14,19 +14,23 @@ export default function Bins() {
       endpoint="/bins"
       canWrite={user.role === 'Admin'}
       addLabel="Add bin"
-      blank={{ location: '', area: '', capacity_kg: '', current_level: 'Low' }}
+      blank={{ location: '', area: '', capacity_kg: '', current_level: 'Low', latitude: '', longitude: '' }}
       columns={[
         { key: 'id', label: 'ID' },
         { key: 'location', label: 'Location' },
         { key: 'area', label: 'Area' },
         { key: 'capacity_kg', label: 'Capacity (kg)' },
         { key: 'current_level', label: 'Level', render: (r) => <LevelGauge level={r.current_level} /> },
+        { label: 'On map', sortable: false, render: (r) => (r.latitude != null && r.longitude != null
+          ? <span className="pill pill-green"><i className="bi bi-geo-alt-fill me-1" />Pinned</span>
+          : <span className="pill pill-gray">No position</span>) },
       ]}
       fields={[
         { name: 'location', label: 'Location', required: true },
         { name: 'area', label: 'Area', required: true },
         { name: 'capacity_kg', label: 'Capacity (kg)', type: 'number', required: true },
         { name: 'current_level', label: 'Current level', type: 'select', options: LEVELS, required: true },
+        { name: 'position', type: 'location' },
       ]}
     />
   );

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import api, { errMsg, showError } from '../api';
+import { BarList, StackedBars } from '../components/Charts';
 import { DataTable, PageHeader, StatCard } from '../components/ui';
+import { WASTE_COLORS } from '../utils/colors';
 import { closeAlert, loading, toast } from '../utils/alert';
 import { downloadReportExcel, downloadReportPdf } from '../utils/reportExport';
 
@@ -77,6 +79,22 @@ export default function Reports() {
               <div style={CARD} key={type}><StatCard icon={WASTE_ICON[type] || 'trash3-fill'} label={`${type} (kg)`} value={kg} tone="gray" /></div>
             ))}
           </div>
+          {report.charts && report.data.length > 0 && (
+            <>
+              <div className="eco-card mb-3">
+                <div className="eco-card-head"><b>Weight over time</b><span className="text-muted small">kg per {report.charts.unit}</span></div>
+                <div className="eco-card-body"><StackedBars data={report.charts.over_time} /></div>
+              </div>
+              <div className="row g-3 mb-4">
+                <div className="col-lg-4"><div className="eco-card h-100"><div className="eco-card-head"><b>By collector</b></div>
+                  <div className="eco-card-body"><BarList items={report.charts.by_collector} /></div></div></div>
+                <div className="col-lg-4"><div className="eco-card h-100"><div className="eco-card-head"><b>By route</b></div>
+                  <div className="eco-card-body"><BarList items={report.charts.by_route} color="#3b82f6" /></div></div></div>
+                <div className="col-lg-4"><div className="eco-card h-100"><div className="eco-card-head"><b>By waste type</b></div>
+                  <div className="eco-card-body"><BarList items={report.charts.by_waste_type.map((t) => ({ ...t, color: WASTE_COLORS[t.name] }))} /></div></div></div>
+              </div>
+            </>
+          )}
           <DataTable
             rows={report.data}
             emptyIcon="bar-chart-line"

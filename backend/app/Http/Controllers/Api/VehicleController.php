@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Vehicle;
+use App\Support\Audit;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -27,12 +28,17 @@ class VehicleController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        return response()->json(Vehicle::create($request->validate($this->rules())), 201);
+        $vehicle = Vehicle::create($request->validate($this->rules()));
+        Audit::log('created', "Added vehicle {$vehicle->plate_number}", $vehicle);
+
+        return response()->json($vehicle, 201);
     }
 
     public function update(Request $request, Vehicle $vehicle): JsonResponse
     {
+        $before = Audit::snapshot($vehicle);
         $vehicle->update($request->validate($this->rules($vehicle)));
+        Audit::log('updated', "Edited vehicle {$vehicle->plate_number} (".Audit::diff($before, $vehicle).')', $vehicle);
 
         return response()->json($vehicle);
     }
@@ -40,6 +46,7 @@ class VehicleController extends Controller
     public function destroy(Vehicle $vehicle): JsonResponse
     {
         $vehicle->delete();
+        Audit::log('deleted', "Deleted vehicle {$vehicle->plate_number}", $vehicle);
 
         return response()->json(['message' => 'Vehicle deleted.']);
     }

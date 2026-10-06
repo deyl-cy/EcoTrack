@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ScheduleResource;
 use App\Models\CollectionRoute;
+use App\Support\Audit;
+use Illuminate\Validation\Rule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -14,7 +16,7 @@ class CollectionRouteController extends Controller
     {
         return [
             'name' => ['required', 'string', 'max:100'],
-            'collector_id' => ['required', 'exists:users,id'],
+            'collector_id' => ['required', Rule::exists('users', 'id')->where('role', 'Collector')],
             'vehicle_id' => ['required', 'exists:vehicles,id'],
             'route_date' => ['required', 'date'],
             'status' => ['sometimes', 'in:Planned,In Progress,Completed'],
@@ -50,8 +52,13 @@ class CollectionRouteController extends Controller
     }
 
     /** GET /api/routes/{id}/stops — the bins on a route. */
-    public function stops(CollectionRoute $route)
+    public function stops(Request $request, CollectionRoute $route)
     {
+        // A collector may only open their own routes.
+        if ($request->user()->hasRole('Collector') && $route->collector_id !== $request->user()->id) {
+            return response()->json(['message' => 'This route is not assigned to you.'], 403);
+        }
+
         return ScheduleResource::collection($route->schedules()->with(['bin', 'collector', 'vehicle', 'route'])->orderBy('id')->get());
     }
 
@@ -59,19 +66,23 @@ class CollectionRouteController extends Controller
     {
         $data = $request->validate($this->rules());
         $route = CollectionRoute::create($data + ['created_by' => $request->user()->id]);
+        Audit::log('created', "Created route '{$route->name}'", $route);
 
         return response()->json($this->shape($route->load(['collector', 'vehicle'])), 201);
     }
 
     public function update(Request $request, CollectionRoute $route): JsonResponse
     {
+        $before = Audit::snapshot($route);
         $route->update($request->validate($this->rules()));
+        Audit::log('updated', "Edited route '{$route->name}' (".Audit::diff($before, $route).')', $route);
 
         return response()->json($this->shape($route->load(['collector', 'vehicle'])));
     }
 
     public function destroy(CollectionRoute $route): JsonResponse
     {
+        Audit::log('deleted', "Deleted route '{$route->name}'", $route);
         $route->delete(); // schedules keep existing; their collection_route_id becomes null (nullOnDelete)
 
         return response()->json(['message' => 'Route deleted.']);

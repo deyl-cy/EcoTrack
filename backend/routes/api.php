@@ -1,10 +1,14 @@
 <?php
 
+use App\Http\Controllers\Api\ActivityLogController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BinController;
 use App\Http\Controllers\Api\CollectionRecordController;
 use App\Http\Controllers\Api\CollectionRouteController;
 use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\MapController;
+use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\ScheduleController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\VehicleController;
@@ -17,6 +21,12 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
+
+    // Own profile + password, the map, and the notification bell (each role gets its own slice of data).
+    Route::put('/profile', [ProfileController::class, 'update']);
+    Route::put('/profile/password', [ProfileController::class, 'password']);
+    Route::get('/map', [MapController::class, 'index']);
+    Route::get('/notifications', [NotificationController::class, 'index']);
 
     // Lists are needed by every role (dropdowns, collector's own assignments).
     Route::get('/schedules', [ScheduleController::class, 'index']);
@@ -55,5 +65,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/users/{user}', [UserController::class, 'destroy']);
         Route::get('/reports', [DashboardController::class, 'report']);
         Route::get('/reports/export', [DashboardController::class, 'exportCsv']);
+        Route::get('/activity-logs', [ActivityLogController::class, 'index']);
     });
 });

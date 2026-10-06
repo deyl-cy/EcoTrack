@@ -20,5 +20,7 @@ class DatabaseSeeder extends Seeder
         foreach (['users', 'bins', 'vehicles', 'collection_routes', 'schedules', 'collection_records'] as $table) {
             DB::table($table)->insert($data[$table]);
         }
+
+        $this->call(BinLocationSeeder::class); // approximate map positions for the sample bins
     }
 }

@@ -6,16 +6,17 @@ import Logo from './Logo';
 // [path, label, bootstrap-icon]
 export const NAV = {
   Admin: [
-    ['/dashboard', 'Dashboard', 'grid-1x2-fill'], ['/bins', 'Bins', 'trash3-fill'],
+    ['/dashboard', 'Dashboard', 'grid-1x2-fill'], ['/map', 'Map', 'geo-alt-fill'], ['/bins', 'Bins', 'trash3-fill'],
     ['/schedules', 'Schedules', 'calendar-check-fill'], ['/vehicles', 'Vehicles', 'truck'],
     ['/users', 'Personnel', 'people-fill'], ['/reports', 'Reports', 'bar-chart-line-fill'],
+    ['/activity', 'Activity Log', 'clock-history'],
   ],
   Supervisor: [
-    ['/dashboard', 'Dashboard', 'grid-1x2-fill'], ['/bins', 'Bins', 'trash3-fill'],
+    ['/dashboard', 'Dashboard', 'grid-1x2-fill'], ['/map', 'Map', 'geo-alt-fill'], ['/bins', 'Bins', 'trash3-fill'],
     ['/routes', 'Routes', 'signpost-split-fill'], ['/schedules', 'Schedules', 'calendar-check-fill'],
     ['/monitor', 'Monitor Status', 'activity'],
   ],
-  Collector: [['/assignments', 'My Assignments', 'clipboard-check-fill']],
+  Collector: [['/assignments', 'My Assignments', 'clipboard-check-fill'], ['/map', 'Map', 'geo-alt-fill']],
 };
 
 export default function Sidebar({ open, onClose }) {
@@ -45,11 +46,13 @@ export default function Sidebar({ open, onClose }) {
       </nav>
 
       <div className="sidebar-user">
-        <span className="avatar">{user.full_name?.[0]?.toUpperCase()}</span>
-        <div className="min-w-0">
-          <div className="name">{user.full_name}</div>
-          <div className="role">{user.role}</div>
-        </div>
+        <NavLink to="/profile" onClick={onClose} className="sidebar-profile" title="My profile">
+          <span className="avatar">{user.full_name?.[0]?.toUpperCase()}</span>
+          <div className="min-w-0">
+            <div className="name">{user.full_name}</div>
+            <div className="role">{user.role}</div>
+          </div>
+        </NavLink>
         <button className="sidebar-logout" onClick={handleLogout} title="Log out" aria-label="Log out">
           <i className="bi bi-box-arrow-right" />
         </button>

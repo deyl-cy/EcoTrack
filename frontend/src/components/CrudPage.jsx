@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import api, { errMsg, showError } from '../api';
 import { confirm, confirmDelete, confirmDiscard, toast, withLoading } from '../utils/alert';
+import LocationPicker from './LocationPicker';
 import { DataTable, Field, Modal, ModalBody, ModalFoot, PageHeader, SearchBox } from './ui';
 
 /**
@@ -38,7 +39,10 @@ export default function CrudPage({ title, heading, description, endpoint, column
   const openAdd = () => { setForm({ ...blank }); setInitial({ ...blank }); setEditingId(null); };
   const openEdit = (row) => {
     const values = {};
-    fields.forEach((f) => { values[f.name] = row[f.name] ?? ''; });
+    fields.forEach((f) => {
+      if (f.type === 'location') { values.latitude = row.latitude ?? ''; values.longitude = row.longitude ?? ''; return; }
+      values[f.name] = row[f.name] ?? '';
+    });
     setForm(values); setInitial(values); setEditingId(row.id);
   };
   const close = () => setForm(null);
@@ -104,7 +108,10 @@ export default function CrudPage({ title, heading, description, endpoint, column
         <Modal title={`${editingId ? 'Edit' : 'Add'} ${title.toLowerCase()}`} onClose={requestClose}>
           <form onSubmit={save}>
             <ModalBody>
-              {visibleFields.map((f) => (
+              {visibleFields.map((f) => f.type === 'location' ? (
+                <LocationPicker key="location" lat={form.latitude} lng={form.longitude}
+                  onChange={(latitude, longitude) => setForm((cur) => ({ ...cur, latitude, longitude }))} />
+              ) : (
                 <Field key={f.name} value={form[f.name]} onChange={change}
                   field={{
                     ...f,

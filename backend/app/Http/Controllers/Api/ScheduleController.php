@@ -7,6 +7,8 @@ use App\Http\Resources\ScheduleResource;
 use App\Models\CollectionRoute;
 use App\Models\Schedule;
 use App\Models\Vehicle;
+use App\Support\Audit;
+use Illuminate\Validation\Rule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -18,7 +20,7 @@ class ScheduleController extends Controller
     {
         return [
             'bin_id' => ['required', 'exists:bins,id'],
-            'collector_id' => ['required', 'exists:users,id'],
+            'collector_id' => ['required', Rule::exists('users', 'id')->where('role', 'Collector')],
             'vehicle_id' => ['nullable', 'exists:vehicles,id'],
             'collection_route_id' => ['nullable', 'exists:collection_routes,id'],
             'scheduled_date' => ['required', 'date'],
@@ -71,6 +73,7 @@ class ScheduleController extends Controller
 
         $schedule = Schedule::create($data);
         $schedule->route?->syncStatus();
+        Audit::log('created', 'Scheduled a pickup for '.$schedule->load('bin')->bin?->location." on {$schedule->scheduled_date->format('Y-m-d')}", $schedule);
 
         return (new ScheduleResource($schedule->load(self::WITH)))->response()->setStatusCode(201);
     }
@@ -83,7 +86,9 @@ class ScheduleController extends Controller
         }
 
         $oldRouteId = $schedule->collection_route_id;
+        $before = Audit::snapshot($schedule);
         $schedule->update($data);
+        Audit::log('updated', 'Edited schedule #'.$schedule->id.' ('.Audit::diff($before, $schedule).')', $schedule);
 
         // keep both the old and new route's status in sync
         foreach (array_filter([$oldRouteId, $schedule->collection_route_id]) as $id) {
@@ -95,7 +100,9 @@ class ScheduleController extends Controller
 
     public function destroy(Schedule $schedule): JsonResponse
     {
+        $schedule->loadMissing('bin');
         $schedule->delete();
+        Audit::log('deleted', 'Deleted the schedule for '.$schedule->bin?->location." on {$schedule->scheduled_date->format('Y-m-d')}", $schedule);
 
         return response()->json(['message' => 'Schedule deleted.']);
     }

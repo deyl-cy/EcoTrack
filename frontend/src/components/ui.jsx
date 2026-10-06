@@ -60,6 +60,16 @@ export function Alert({ msg, type = 'danger', onClose }) {
   );
 }
 
+/* ---------- heading that only appears when printing ---------- */
+export function PrintHeader({ title, subtitle }) {
+  return (
+    <div className="print-only print-head">
+      <h2>EcoTrack · {title}</h2>
+      <p>{subtitle ? `${subtitle} · ` : ''}Printed {new Date().toLocaleString()}</p>
+    </div>
+  );
+}
+
 /* ---------- empty state ---------- */
 export function Empty({ icon = 'inbox', children }) {
   return <div className="empty"><i className={`bi bi-${icon}`} />{children}</div>;
@@ -84,7 +94,9 @@ export const ModalBody = ({ children }) => <div className="eco-modal-body">{chil
 export const ModalFoot = ({ children }) => <div className="eco-modal-foot">{children}</div>;
 
 /* ---------- sortable table (inside a card) ---------- */
-// columns: [{ key, label, render?(row), sortable? }]
+// columns: [{ key, label, render?(row), sortable?, noPrint?, printOnly? }]
+// noPrint hides a column on paper (e.g. buttons); printOnly shows it only on paper (e.g. a tick box).
+const cellClass = (c) => (c.noPrint ? 'no-print' : c.printOnly ? 'print-only-cell' : '');
 export function DataTable({ columns, rows, empty = 'No records found.', emptyIcon = 'inbox' }) {
   const [sort, setSort] = useState({ key: null, dir: 'asc' });
 
@@ -106,7 +118,7 @@ export function DataTable({ columns, rows, empty = 'No records found.', emptyIco
               {columns.map((c) => {
                 const canSort = c.sortable !== false && c.key;
                 return (
-                  <th key={c.label} className={canSort ? 'sortable' : ''} onClick={canSort ? () => toggle(c.key) : undefined}>
+                  <th key={c.label} className={`${canSort ? 'sortable' : ''} ${cellClass(c)}`} onClick={canSort ? () => toggle(c.key) : undefined}>
                     {c.label}
                     {sort.key === c.key && <i className={`bi bi-caret-${sort.dir === 'asc' ? 'up' : 'down'}-fill ms-1 small`} />}
                   </th>
@@ -120,7 +132,7 @@ export function DataTable({ columns, rows, empty = 'No records found.', emptyIco
             )}
             {sorted.map((row, i) => (
               <tr key={row.id ?? i}>
-                {columns.map((c) => <td key={c.label}>{c.render ? c.render(row) : row[c.key]}</td>)}
+                {columns.map((c) => <td key={c.label} className={cellClass(c)}>{c.render ? c.render(row) : row[c.key]}</td>)}
               </tr>
             ))}
           </tbody>

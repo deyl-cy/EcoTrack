@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api, { errMsg } from '../api';
 import { useAuth } from '../AuthContext';
+import { BarList, StackedBars } from '../components/Charts';
 import { DataTable, LevelGauge, PageHeader, StatCard } from '../components/ui';
+import { WASTE_COLORS } from '../utils/colors';
 import { DASH_ALERT_KEY, toast, warning } from '../utils/alert';
 
 const LEVELS = [['Low', '#22a35a'], ['Medium', '#e0a526'], ['High', '#ea7a1c'], ['Full', '#d93f3f']];
@@ -106,6 +108,31 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {d.trends && (
+        <>
+          <div className="row g-3 mb-4">
+            <div className="col-lg-8">
+              <div className="eco-card h-100">
+                <div className="eco-card-head"><b>Weight collected, last 8 weeks</b><span className="text-muted small">kg per week</span></div>
+                <div className="eco-card-body"><StackedBars data={d.trends.weekly} /></div>
+              </div>
+            </div>
+            <div className="col-lg-4">
+              <div className="eco-card h-100">
+                <div className="eco-card-head"><b>By waste type</b><span className="text-muted small">last 30 days</span></div>
+                <div className="eco-card-body">
+                  <BarList items={d.trends.by_waste_type.map((t) => ({ ...t, color: WASTE_COLORS[t.name] }))} empty="No pickups in the last 30 days." />
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="eco-card mb-4">
+            <div className="eco-card-head"><b>Collectors compared</b><span className="text-muted small">last 30 days</span></div>
+            <div className="eco-card-body"><BarList items={d.trends.by_collector} empty="No pickups in the last 30 days." /></div>
+          </div>
+        </>
+      )}
 
       <h6 className="mb-2">Bins that need collecting</h6>
       <DataTable

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\CollectionRecord;
 use App\Models\Schedule;
+use App\Support\Audit;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -42,6 +43,8 @@ class CollectionRecordController extends Controller
             $schedule->bin->update(['current_level' => 'Low']);
             $schedule->route?->syncStatus();
         });
+
+        Audit::log('collected', "Recorded pickup at {$schedule->bin->location} ({$data['actual_weight_kg']} kg)", $schedule);
 
         return response()->json(['message' => 'Collection recorded.'], 201);
     }

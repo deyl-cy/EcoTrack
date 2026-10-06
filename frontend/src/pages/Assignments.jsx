@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api, { errMsg } from '../api';
-import { Badge, DataTable, Empty, PageHeader } from '../components/ui';
+import { useAuth } from '../AuthContext';
+import { Badge, DataTable, Empty, PageHeader, PrintHeader } from '../components/ui';
 import { toast } from '../utils/alert';
 
 export default function Assignments() {
+  const { user } = useAuth();
   const [rows, setRows] = useState(null);
 
   useEffect(() => {
@@ -32,8 +34,9 @@ export default function Assignments() {
     { key: 'location', label: 'Location', render: (s) => <><div className="fw-semibold">{s.location}</div><small className="text-muted">{s.area}</small></> },
     { key: 'waste_type', label: 'Waste type' },
     { key: 'status', label: 'Status', render: (s) => <Badge value={s.status} /> },
+    { label: 'Done', sortable: false, printOnly: true, render: (s) => (s.status === 'Pending' ? '☐' : '☑') }, // tick box on the paper copy
     {
-      label: 'Action', sortable: false,
+      label: 'Action', sortable: false, noPrint: true,
       render: (s) => s.status === 'Pending'
         ? <Link className="btn btn-sm btn-success" to={`/assignments/${s.id}`}>Record pickup</Link>
         : <span className="text-muted small"><i className="bi bi-check2 me-1" />Done</span>,
@@ -44,8 +47,11 @@ export default function Assignments() {
 
   return (
     <>
+      <PrintHeader title="Pickup schedule" subtitle={user.full_name} />
       <PageHeader title="My assignments"
-        subtitle={rows.length ? `${pending} of ${rows.length} pickups still to collect.` : 'Bins and routes assigned to you appear here.'} />
+        subtitle={rows.length ? `${pending} of ${rows.length} pickups still to collect.` : 'Bins and routes assigned to you appear here.'}>
+        {rows.length > 0 && <button className="btn btn-soft" onClick={() => window.print()}><i className="bi bi-printer-fill me-1" />Print schedule</button>}
+      </PageHeader>
 
       {rows.length === 0 && <div className="eco-card"><Empty icon="clipboard-check">You have no assignments yet. Your supervisor will schedule pickups for you.</Empty></div>}
 

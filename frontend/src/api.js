@@ -21,11 +21,12 @@ api.interceptors.response.use(
   (res) => res,
   (err) => {
     const status = err.response?.status;
+    const quiet = err.config?.silent; // background polling: don't nag with popups
 
     if (!err.response) {
       // Server down / no internet.
       err.handled = true;
-      toast.error('Cannot reach the server. Check your connection.');
+      if (!quiet) toast.error('Cannot reach the server. Check your connection.');
     } else if (status === 401 && !window.location.pathname.startsWith('/login')) {
       // Token expired / invalid => tell the user, then back to the login page.
       localStorage.removeItem('token');
@@ -41,7 +42,7 @@ api.interceptors.response.use(
       toast.warning("You don't have permission to do that.");
     } else if (status >= 500) {
       err.handled = true;
-      toast.error('Server error. Please try again in a moment.');
+      if (!quiet) toast.error('Server error. Please try again in a moment.');
     }
     return Promise.reject(err);
   }

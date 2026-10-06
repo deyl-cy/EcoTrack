@@ -13,6 +13,9 @@ import Monitor from './pages/Monitor';
 import Reports from './pages/Reports';
 import Assignments from './pages/Assignments';
 import UpdateCollection from './pages/UpdateCollection';
+import MapPage from './pages/MapPage';
+import Profile from './pages/Profile';
+import ActivityLog from './pages/ActivityLog';
 
 const ADMIN = ['Admin'];
 const STAFF = ['Admin', 'Supervisor'];
@@ -35,6 +38,9 @@ export default function App() {
         <Route path="/reports" element={<Guard roles={ADMIN}><Reports /></Guard>} />
         <Route path="/routes" element={<Guard roles={['Supervisor']}><RoutesPage /></Guard>} />
         <Route path="/monitor" element={<Guard roles={['Supervisor']}><Monitor /></Guard>} />
+        <Route path="/map" element={<MapPage />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/activity" element={<Guard roles={ADMIN}><ActivityLog /></Guard>} />
         <Route path="/assignments" element={<Guard roles={COLLECTOR}><Assignments /></Guard>} />
         <Route path="/assignments/:id" element={<Guard roles={COLLECTOR}><UpdateCollection /></Guard>} />
       </Route>
