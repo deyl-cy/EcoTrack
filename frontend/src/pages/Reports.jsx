@@ -4,6 +4,9 @@ import { DataTable, PageHeader, StatCard } from '../components/ui';
 import { closeAlert, loading, toast } from '../utils/alert';
 import { downloadReportExcel, downloadReportPdf } from '../utils/reportExport';
 
+// Every stat card shares one row: they grow to fill it, and the row scrolls sideways on narrow screens.
+const CARD = { flex: '1 0 180px' };
+
 const WASTE_ICON = { Biodegradable: 'flower1', 'Non-Biodegradable': 'x-octagon-fill', Recyclable: 'recycle' };
 
 export default function Reports() {
@@ -67,11 +70,11 @@ export default function Reports() {
 
       {report && (
         <>
-          <div className="row g-3 mb-4">
-            <div className="col-6 col-lg-3"><StatCard icon="truck" label="Total pickups" value={report.summary.total_pickups} tone="blue" /></div>
-            <div className="col-6 col-lg-3"><StatCard icon="speedometer2" label="Total weight (kg)" value={report.summary.total_weight_kg} /></div>
+          <div className="report-stats d-flex gap-3 mb-4 pb-1 overflow-auto">
+            <div style={CARD}><StatCard icon="truck" label="Total pickups" value={report.summary.total_pickups} tone="blue" /></div>
+            <div style={CARD}><StatCard icon="speedometer2" label="Total weight (kg)" value={report.summary.total_weight_kg} /></div>
             {Object.entries(report.summary.by_waste_type).map(([type, kg]) => (
-              <div className="col-6 col-lg-3" key={type}><StatCard icon={WASTE_ICON[type] || 'trash3-fill'} label={`${type} (kg)`} value={kg} tone="gray" /></div>
+              <div style={CARD} key={type}><StatCard icon={WASTE_ICON[type] || 'trash3-fill'} label={`${type} (kg)`} value={kg} tone="gray" /></div>
             ))}
           </div>
           <DataTable

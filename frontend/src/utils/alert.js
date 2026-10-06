@@ -126,6 +126,33 @@ export const loading = (title = 'Please wait...', text) =>
 
 export const closeAlert = () => Swal.close();
 
+/** "Still there?" popup with a live countdown. Resolves with dismiss === 'timer' when time runs out. */
+export function idleWarning(seconds) {
+  let tick;
+  return fire({
+    icon: 'warning',
+    title: 'Still there?',
+    html: 'You will be signed out for inactivity in <b id="eco-idle-count"></b>.',
+    timer: seconds * 1000,
+    timerProgressBar: true,
+    showCancelButton: true,
+    confirmButtonText: 'Stay signed in',
+    cancelButtonText: 'Log out now',
+    allowOutsideClick: false,
+    allowEscapeKey: false,
+    didOpen: () => {
+      const el = Swal.getHtmlContainer().querySelector('#eco-idle-count');
+      const update = () => {
+        const s = Math.max(0, Math.ceil(Swal.getTimerLeft() / 1000));
+        el.textContent = `${s} second${s === 1 ? '' : 's'}`;
+      };
+      update();
+      tick = setInterval(update, 250);
+    },
+    willClose: () => clearInterval(tick),
+  });
+}
+
 /**
  * Runs a promise (or a function returning one) and shows a spinner popup if it takes longer
  * than `delay` ms, so quick requests don't flash a popup. Always closes the spinner afterwards.

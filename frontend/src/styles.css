@@ -181,3 +181,9 @@ th.sortable:hover { color: var(--forest-700); }
 .eco-swal-list { text-align: left; margin: 0 auto; padding-left: 1.2rem; max-width: 320px; }
 .eco-swal-toast { border-radius: 12px; box-shadow: 0 8px 24px rgba(7, 43, 32, .18); font-size: .9rem; }
 .eco-swal-toast .swal2-timer-progress-bar { background: var(--leaf-500); }
+
+/* Smaller stat cards on the Reports page (Dashboard keeps the larger ones). */
+.report-stats .stat { padding: 12px 14px; gap: 10px; }
+.report-stats .stat-icon { width: 36px; height: 36px; border-radius: 10px; font-size: 1.05rem; }
+.report-stats .stat-value { font-size: 1.25rem; }
+.report-stats .stat-label { font-size: .74rem; }

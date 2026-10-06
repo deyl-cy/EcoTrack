@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import api from './api';
 import { DASH_ALERT_KEY } from './utils/alert';
+import { ACTIVITY_KEY } from './utils/session';
 
 const AuthContext = createContext(null);
 export const useAuth = () => useContext(AuthContext);
@@ -32,6 +33,7 @@ export function AuthProvider({ children }) {
     try { await api.post('/logout'); } catch { /* token may already be gone */ }
     localStorage.removeItem('token');
     sessionStorage.removeItem(DASH_ALERT_KEY);
+    localStorage.removeItem(ACTIVITY_KEY);
     setUser(null);
   };
 

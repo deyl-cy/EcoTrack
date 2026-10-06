@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
+import IdleTimeout from './IdleTimeout';
 import Sidebar, { NAV } from './Sidebar';
 
 export default function Layout() {
@@ -16,6 +17,7 @@ export default function Layout() {
 
   return (
     <>
+      <IdleTimeout />
       <Sidebar open={open} onClose={() => setOpen(false)} />
       <div className={`backdrop ${open ? 'show' : ''}`} onClick={() => setOpen(false)} />
       <div className="main">
